@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>風管風量計算</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0eeea;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.2);
+    --text: #1a1a18;
+    --text-muted: #6b6b67;
+    --accent: #1a3a2a;
+    --accent-light: #e8f0eb;
+    --accent-text: #1a3a2a;
+    --highlight-bg: #e8f0eb;
+    --highlight-border: #3a6b4a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141412;
+      --surface: #1e1e1b;
+      --surface2: #272724;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #e8e6e0;
+      --text-muted: #888880;
+      --accent: #5a9e72;
+      --accent-light: #1a2e20;
+      --accent-text: #8fd4a6;
+      --highlight-bg: #1a2e20;
+      --highlight-border: #5a9e72;
+    }
+  }
+
+  body {
+    font-family: -apple-system, 'Helvetica Neue', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--accent);
+    color: #fff;
+    padding: 1.25rem 1.25rem 1rem;
+  }
+
+  header h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 2px;
+  }
+
+  header p {
+    font-size: 12px;
+    opacity: 0.65;
+    letter-spacing: 0.03em;
+  }
+
+  main {
+    padding: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 0.5px solid var(--border);
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 0.75rem 1rem 0.5rem;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .card-body { padding: 1rem; }
+
+  .field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0;
+    border-bottom: 0.5px solid var(--border);
+    gap: 12px;
+  }
+
+  .field:last-child { border-bottom: none; }
+
+  .field-label {
+    font-size: 14px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .field-label span {
+    font-size: 12px;
+    display: block;
+    margin-top: 1px;
+    opacity: 0.7;
+  }
+
+  .field-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .field-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .unit {
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 36px;
+  }
+
+  select, input[type="number"] {
+    font-size: 15px;
+    font-family: inherit;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border-strong);
+    background: var(--surface2);
+    color: var(--text);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  select {
+    padding-right: 28px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  select:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(90,158,114,0.15);
+  }
+
+  input[type="number"] { width: 90px; text-align: right; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .metric {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 0.875rem;
+  }
+
+  .metric.primary {
+    background: var(--accent-light);
+    border: 0.5px solid var(--highlight-border);
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
+  .metric.primary .metric-label { color: var(--accent-text); opacity: 0.75; }
+
+  .metric-val {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .metric.primary .metric-val { color: var(--accent-text); }
+
+  .metric-unit {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .metric.primary .metric-unit { color: var(--accent-text); opacity: 0.6; }
+
+  .formula {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 0.75rem 0.875rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.9;
+    margin-top: 0.5rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 0.5px solid var(--border);
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    padding: 8px 10px;
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr.active td {
+    background: var(--highlight-bg);
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+
+  footer {
+    text-align: center;
+    padding: 1.5rem 1rem 2rem;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>風管風量計算</h1>
+  <p>Duct Airflow Calculator · σ = 1.2 kg/m³</p>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="card-header">輸入條件</div>
+    <div class="card-body">
+
+      <div class="field">
+        <div class="field-label">測試風管尺寸</div>
+        <div class="field-right">
+          <select id="duct-select">
+            <option value="0.56">∅560</option>
+            <option value="0.63">∅630</option>
+            <option value="0.71">∅710</option>
+            <option value="0.80">∅800</option>
+            <option value="0.90">∅900</option>
+            <option value="1.00">∅1000</option>
+            <option value="1.12">∅1120</option>
+            <option value="1.25">∅1250</option>
+            <option value="1.40">∅1400</option>
+            <option value="1.60" selected>∅1600</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">截面積 A</div>
+        <div class="field-right">
+          <span class="field-value" id="area-display">2.0106</span>
+          <span class="unit">m²</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">
+          動壓 Pν
+          <span>靜壓差輸入</span>
+        </div>
+        <div class="field-right">
+          <input type="number" id="dp-input" value="19.3" step="0.1" min="0" inputmode="decimal" />
+          <span class="unit">mmAq</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label"></div>
+        <div class="field-right">
+          <span class="field-value" id="dp-pa-display">189.33</span>
+          <span class="unit">Pa</span>
+        </div>
+      </div>
+
+      <div class="formula">
+        Pν = ½σν² &nbsp;⟹&nbsp; ν = √(2Pν ÷ σ)<br>
+        Q = A × ν &nbsp;|&nbsp; 1 mmAq = 9.80665 Pa
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">計算結果</div>
+    <div class="card-body">
+      <div class="result-grid">
+        <div class="metric primary">
+          <div class="metric-label">風速 ν</div>
+          <div class="metric-val" id="res-v">17.76</div>
+          <div class="metric-unit">m/s</div>
+        </div>
+        <div class="metric primary">
+          <div class="metric-label">風量 Q</div>
+          <div class="metric-val" id="res-cms">35.7164</div>
+          <div class="metric-unit">CMS (m³/s)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">風量 Q</div>
+          <div class="metric-val" id="res-cmm">2,143</div>
+          <div class="metric-unit">CMM (m³/min)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">風量 Q</div>
+          <div class="metric-val" id="res-cmh">128,579</div>
+          <div class="metric-unit">CMH (m³/h)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">風管尺寸對照表</div>
+    <div style="overflow-x:auto;">
+      <table id="ref-table">
+        <thead>
+          <tr><th>尺寸</th><th>直徑 (m)</th><th>截面積 (m²)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer>風管風量計算 · 密度 σ = 1.2 kg/m³</footer>
+
+<script>
+  var DUCTS = [
+    { label: '∅560',  d: 0.56  },
+    { label: '∅630',  d: 0.63  },
+    { label: '∅710',  d: 0.71  },
+    { label: '∅800',  d: 0.80  },
+    { label: '∅900',  d: 0.90  },
+    { label: '∅1000', d: 1.00  },
+    { label: '∅1120', d: 1.12  },
+    { label: '∅1250', d: 1.25  },
+    { label: '∅1400', d: 1.40  },
+    { label: '∅1600', d: 1.60  },
+  ];
+
+  function area(d) { return Math.PI * d * d / 4; }
+
+  function buildTable(selD) {
+    var tb = document.querySelector('#ref-table tbody');
+    tb.innerHTML = DUCTS.map(function(dk) {
+      var a = area(dk.d);
+      var hi = Math.abs(dk.d - selD) < 0.001 ? ' class="active"' : '';
+      return '<tr' + hi + '><td>' + dk.label + '</td><td>' + dk.d.toFixed(2) + '</td><td>' + a.toFixed(6) + '</td></tr>';
+    }).join('');
+  }
+
+  function fmt(n, dec) {
+    return n.toLocaleString('zh-TW', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function calculate() {
+    var d = parseFloat(document.getElementById('duct-select').value);
+    var mmAq = parseFloat(document.getElementById('dp-input').value) || 0;
+    var A = area(d);
+    var Pa = mmAq * 9.80665;
+    var sigma = 1.2;
+    var v = Math.sqrt(2 * Pa / sigma);
+    var Q_cms = A * v;
+
+    document.getElementById('area-display').textContent = A.toFixed(4);
+    document.getElementById('dp-pa-display').textContent = Pa.toFixed(2);
+    document.getElementById('res-v').textContent = v.toFixed(2);
+    document.getElementById('res-cms').textContent = Q_cms.toFixed(4);
+    document.getElementById('res-cmm').textContent = fmt(Q_cms * 60, 0);
+    document.getElementById('res-cmh').textContent = fmt(Q_cms * 3600, 0);
+    buildTable(d);
+  }
+
+  var ductSel = document.getElementById('duct-select');
+  var dpInput = document.getElementById('dp-input');
+
+  ductSel.addEventListener('change', calculate);
+  ductSel.addEventListener('input', calculate);
+  dpInput.addEventListener('input', calculate);
+  dpInput.addEventListener('change', calculate);
+  dpInput.addEventListener('keyup', calculate);
+
+  calculate();
+</script>
+</body>
+</html>
